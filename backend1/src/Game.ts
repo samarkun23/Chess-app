@@ -1,24 +1,69 @@
-import {WebSocket} from "ws";
+import { WebSocket } from "ws";
+import { Chess } from "chess.js";
+import { GAME_OVER, MOVE } from "./messages.js";
 
-
-export class Game{
+export class Game {
     public player1: WebSocket;
     public player2: WebSocket;
-    private board: string;
-    private moves: string[];
+    private board: Chess;
     private startTime: Date;
 
 
-    constructor(player1: WebSocket, player2: WebSocket){
+    constructor(player1: WebSocket, player2: WebSocket) {
         this.player1 = player1;
         this.player2 = player2;
-        this.board = "";
-        this.moves = [];
+        this.board = new Chess();
         this.startTime = new Date();
     }
 
-    makeMove(socket: WebSocket, move: string) {
+    makeMove(socket: WebSocket, move: { from: string, to: string }) {
         // validation , is this user move, is the move valid , than update the board push the move and check the game is over ? and send the upadated board to both of them 
+
+        if (this.board.moves.length % 2 === 0 && socket !== this.player1) {
+            return
+        }
+        if (this.board.moves.length % 2 === 1 && socket !== this.player2) {
+            return
+        }
+
+        // validation
+        try {
+            this.board.move(move)
+        } catch (e) {
+            return;
+        }
+
+        //board is autometically updating throw a library
+
+        // checking th game is over 
+        if (this.board.isGameOver()) {
+            // send the game over message to both
+            this.player1.emit(JSON.stringify({
+                type: GAME_OVER,
+                payload: {
+                    winner: this.board.turn() === "w" ? "black" : "white"
+                }
+            }))
+            this.player2.emit(JSON.stringify({
+                type: GAME_OVER,
+                payload: {
+                    winner: this.board.turn() === "w" ? "black" : "white"
+                }
+            }))
+            return;
+        }
+
+        if (this.board.moves.length % 2 === 0) {
+            this.player2.emit(JSON.stringify({
+                type: MOVE,
+                payload: move
+            }))
+        } else {
+            this.player1.emit(JSON.stringify({
+                type: MOVE,
+                payload: move
+            }))
+        }
 
     }
 }
