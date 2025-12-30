@@ -42,45 +42,31 @@ export class Game {
 
         // validation
         try {
-            this.board.move(move)
-        } catch (e) {
+            const result = this.board.move({...move, promotion: 'q'});
+            if (!result) {
+                console.log("Invalid move attempted:", move);
+                return;
+            }
+            
+        } catch (error) {
+            console.log("Exception in move", move, error)
             return;
         }
 
+
+        this.moveCount++;
         //board is autometically updating throw a library
 
         // checking th game is over 
-        if (this.board.isGameOver()) {
-            // send the game over message to both
-            this.player1.emit(JSON.stringify({
-                type: GAME_OVER,
-                payload: {
-                    winner: this.board.turn() === "w" ? "black" : "white"
-                }
-            }))
-            this.player2.emit(JSON.stringify({
-                type: GAME_OVER,
-                payload: {
-                    winner: this.board.turn() === "w" ? "black" : "white"
-                }
-            }))
-            return;
-        }
+        this.player1.send(JSON.stringify({ type: MOVE, payload: move }));
+        this.player2.send(JSON.stringify({ type: MOVE, payload: move }));
 
         // move 
 
-        if (this.board.moves().length % 2 === 0) {
-            this.player2.send(JSON.stringify({
-                type: MOVE,
-                payload: move
-            }))
-        } else {
-            this.player1.send(JSON.stringify({
-                type: MOVE,
-                payload: move
-            }))
+        if (this.board.isGameOver()) {
+            const winner = this.board.turn() === "w" ? "black" : "white";
+            this.player1.send(JSON.stringify({ type: GAME_OVER, payload: { winner } }));
+            this.player2.send(JSON.stringify({ type: GAME_OVER, payload: { winner } }));
         }
-
-        this.moveCount++;
     }
 }
