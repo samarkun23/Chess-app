@@ -3,6 +3,7 @@ import { useState } from "react";
 import { MOVE } from "../pages/Game";
 
 export const ChessBoard = ({ board, socket, setBoard, chess }: {
+    chess: any;
     board: ({
         square: Square,
         type: PieceSymbol,
@@ -10,7 +11,6 @@ export const ChessBoard = ({ board, socket, setBoard, chess }: {
     } | null)[][];
     socket: WebSocket;
     setBoard: any;
-    chess: any;
 }) => {
 
     const [from, setFrom] = useState<null | Square>(null);
@@ -30,27 +30,18 @@ export const ChessBoard = ({ board, socket, setBoard, chess }: {
                                 type: MOVE,
                                 payload: {
                                     move: {
-                                        from: from,
+                                        from,
                                         to : squareRepresentation
                                     }
                                 }
                             }))
                             setFrom(null)
-                            chess.move({
-                                from,
-                                to: squareRepresentation
-                            });
-                            setBoard(chess.board());
-                            console.log({
-                                from,
-                                to: squareRepresentation
-                            })
+
                         }
                     }} key={j} className={`w-16 h-16 ${(i + j) % 2 ? 'bg-green-600' : 'bg-green-100'} `}>
                         <div className="w-full justify-center flex h-full">
                             <div className="h-full justify-center flex flex-col">
-                                {square ? square.type : ""}
-
+                                {square ? <img className="w-10" src={`/${square.color === 'b' ? square?.type : `${square?.type?.toUpperCase()} copy`}.png`} /> : null}
                             </div>
                         </div>
                     </div>
