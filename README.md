@@ -1,6 +1,6 @@
 # Chess-app
 
-## Feature left
+## Future feature
 - chat
 - videocall
 - bot detection
