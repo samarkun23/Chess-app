@@ -1,0 +1,30 @@
+{
+    "name": "db",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "exports": {
+        "./client" : "./src/index.ts"
+    },
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "build": "tsc -b",
+        "postinstall": "npx prisma generate",
+        "prisma:generate": "dotenv -config=../../.env prisma generate"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+        "@types/pg": "^8.16.0",
+        "dotenv": "^17.2.3",
+        "prisma": "^6.19.0",
+        "tsx": "^4.21.0",
+        "@repo/typescript-config": "workspace:*"
+    },
+    "dependencies": {
+        "@prisma/client": "^6.19.0",
+        "@types/dotenv": "^6.1.1",
+        "pg": "^8.16.3"
+    }
+}
