@@ -1,5 +1,5 @@
 import {prismaClient} from '@repo/db/client'
-import { json, Router } from 'express'
+import {  Router } from 'express'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
@@ -93,3 +93,5 @@ router.post("/singin", async(req,res) => {
         res.status(500).json({message: "Error while singIn"}) 
     }
 })
+
+export const authRouter = router
