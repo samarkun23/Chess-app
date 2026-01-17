@@ -3,9 +3,9 @@ import {  Router } from 'express'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
 import dotenv from 'dotenv'
+import JWT_SECRET from '@repo/backend-common/jwt'
 
 dotenv.config();
-const JWT_SECRET = process.env.JWT_SECRET
 
 const router = Router()
 
@@ -84,7 +84,7 @@ router.post("/singin", async(req,res) => {
             }) 
         }
 
-        const token = jwt.sign({ id: user.id}, JWT_SECRET || "jwt-secret");
+        const token = jwt.sign({ userId: user.id}, JWT_SECRET);
 
         res.json({
             token: token
