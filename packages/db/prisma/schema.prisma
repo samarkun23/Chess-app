@@ -23,16 +23,23 @@ model User {
   username  String      @unique
   email     String      @unique
   password  String
-  games     Game[]
+
+  whiteGames  Game[]      @relation("WhitePlayer")
+  blackGames  Game[]      @relation("BlackPlayer")
 }
 
 model Game{
   id        Int     @id()     @default(autoincrement())
-  ownerId   Int
-  player1   String
-  player2   String
-  winner    gameResult
+
+  whiteId   Int
+  blackId   Int
+
+  winnerId  Int
+  result    gameResult?
+
   createdAt DateTime      @default(now())
   endedAt   DateTime?
-  user      User      @relation(fields: [ownerId], references: [id])
+
+  white     User          @relation("WhitePlayer", fields: [whiteId], references: [id])
+  black     User          @relation("BlackPlayer", fields: [blackId], references: [id])
 }
