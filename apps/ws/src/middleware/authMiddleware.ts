@@ -4,12 +4,16 @@ import jwt from 'jsonwebtoken'
 import type { JwtPayload } from 'jsonwebtoken';
 import JWT_SECRET from '@repo/backend-common/jwt'
 import { WebSocket } from 'ws'
+import dotenv from 'dotenv'
+
+dotenv.config();
 
 export interface AuthWebSocket extends WebSocket{
     userId? : String
 }
 
 export function authMiddleware(ws: AuthWebSocket, req: any): boolean{
+    console.log("THIS IS SECRET : ", JWT_SECRET)
     console.log("req receive", req.url);
     const url = req.url;
 
@@ -32,8 +36,7 @@ export function authMiddleware(ws: AuthWebSocket, req: any): boolean{
     
     try {
         console.log("token")
-        const decoded = jwt.verify(token, "qwertyuioasdfghklzxcvbnmqwsxedcrfvyhnujmkp123456789");
-
+        const decoded = jwt.verify(token, JWT_SECRET!);
         console.log(decoded);
 
         if (typeof decoded === 'string' || !decoded || !('userId' in decoded)) {
