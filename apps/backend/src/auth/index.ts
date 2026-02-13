@@ -11,6 +11,7 @@ const router = Router()
 
 router.post("/signup", async(req,res) => {
     const body = req.body;
+    console.log(JWT_SECRET)
 
     const inUserExists = await prismaClient.user.findFirst({
         where: {
@@ -54,7 +55,7 @@ router.post("/signup", async(req,res) => {
 
 })
 
-router.post("/singin", async(req,res) => {
+router.post("/signin", async(req,res) => {
     const body = req.body;
 
     const user = await prismaClient.user.findFirst({
@@ -84,14 +85,25 @@ router.post("/singin", async(req,res) => {
             }) 
         }
 
-        const token = jwt.sign({ userId: user.id}, JWT_SECRET);
+        const token = jwt.sign({ userId: user.id}, JWT_SECRET!);
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'lax'
+        });
 
         res.json({
-            token: token
+            message: "LOGIN SUCCESSFULLY"
         })
     } catch (error) {
         res.status(500).json({message: "Error while singIn"}) 
     }
+})
+
+router.post("/logout", (req,res) => {
+    res.clearCookie("token");
+    res.json({message: "Logged out"});
 })
 
 export const authRouter = router

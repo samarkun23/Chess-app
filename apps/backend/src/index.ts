@@ -2,12 +2,14 @@ import express from 'express'
 import cors from 'cors'
 import { mainRouter } from './routers/mainroute.js'
 import dotenv from 'dotenv'
+import cookieParser from 'cookie-parser'
 
 dotenv.config()
 
 const app = express();
 app.use(cors());
 app.use(express.json()); // <-- add JSON middleware
+app.use(cookieParser())
 
 app.use("/", mainRouter)
 
