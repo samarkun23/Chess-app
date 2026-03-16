@@ -58,14 +58,16 @@ router.post("/signup", async(req,res) => {
 router.post("/signin", async(req,res) => {
     const body = req.body;
 
-    const user = await prismaClient.user.findFirst({
-        where: {
-            OR:[
-                {email: body.email},
-                {username: body.username}
-            ]
-        }
-    })
+    let user ;
+    if(body.email){
+        user = await prismaClient.user.findUnique({
+            where: {email: body.email}
+        })
+    }else if(body.username){
+        user = await prismaClient.user.findUnique({
+            where: {username : body.username}
+        })
+    }
 
     if (!user) {
         return res.status(400).json({
