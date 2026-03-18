@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../components/Button"
 import { ChessBoard } from "../components/ChessBoard"
 import { useSocket } from "../hook/useSocket"
@@ -11,20 +11,25 @@ export const GAME_OVER = 'game_over';
 
 export const Game = () => {
     const socket = useSocket();
+    console.log(socket)
     const [chess, setChess] = useState(new Chess())
     const [board, setBoard] = useState(chess.board());
     const [started, setStarted] = useState(false)
+
+    function isOpen(ws:WebSocket) {
+        return ws.readyState === ws.OPEN
+    }
 
     useEffect(() => {
         if (!socket) {
             return
         }
-        socket.onmessage = (event) => {
+        const handleMessage = (event: MessageEvent) => {
 
             const message = JSON.parse(event.data);
 
             console.log(message)
-            
+
             switch (message.type) {
                 case INIT_GAME:
                     setBoard(chess.board())
@@ -33,20 +38,30 @@ export const Game = () => {
 
                 case MOVE:
                     const move = message.payload;
-                    chess.move(move);
-                    setBoard([...chess.board()]);
+                    chess.move(move)
+                    setBoard(chess.board())
                     console.log("move made");
-
+                    // const move = message.payload;
+                    // chess.move(move);
+                    // setBoard([...chess.board()]);
                     break;
+
                 case GAME_OVER:
                     console.log("Game over");
                     break;
             }
+
+        }
+
+        socket.addEventListener('message', handleMessage);
+
+        return () => {
+            socket.removeEventListener('message', handleMessage)
         }
     }, [socket])
 
     if (!socket) return <div>
-        
+
     </div>
 
     return <div className="flex justify-center">
@@ -57,12 +72,13 @@ export const Game = () => {
                     <ChessBoard board={board} socket={socket} setBoard={setBoard} chess={chess} />
                 </div>
                 <div className="cols-span-2 bg-black/20 w-full flex justify-center">
-                    <div className="pt-10">
+                    <div className="pt-10" >
                         {!started && <Button onClick={() => {
-                            socket?.send(JSON.stringify({
-                                type: INIT_GAME,
+                            if(!isOpen(socket)) return;
+                            socket.send(JSON.stringify({
+                                type: INIT_GAME
                             }))
-                        }} >Play</Button>} 
+                        }} >Play</Button>}
                     </div>
                 </div>
             </div>

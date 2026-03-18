@@ -2,46 +2,63 @@ import { Topbar } from "../components/Topbar"
 import { useState } from 'react';
 import { Crown, ArrowRight, AlertCircle } from 'lucide-react';
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 
 
 interface SignupPageProps {
     onSwitchToSignIn?: () => void;
 }
 
-export const SignUp = () => {
+const api = axios.create({
+    baseURL: "http://localhost:4000/auth",
+    withCredentials: true
+})
+
+export function SignUp() {
     const [email, setEmail] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    
+    const router = useNavigate();
+
+    const handleSignUp = async () => {
+        await api.post("/signup", {
+            email,
+            username,
+            password
+        })
+        alert("SignUp complete");
+        router("/signin")
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        setError('');
-        setSuccess(false);
+        handleSignUp()
+        // if (password !== confirmPassword) {
+        //     setError('Passwords do not match');
+        //     return;
+        // }
 
-        if (password !== confirmPassword) {
-            setError('Passwords do not match');
-            return;
-        }
+        // if (password.length < 6) {
+        //     setError('Password must be at least 6 characters');
+        //     return;
+        // }
 
-        if (password.length < 6) {
-            setError('Password must be at least 6 characters');
-            return;
-        }
-
-        setLoading(true);
-        try {
-            setSuccess(true);
-            setEmail('');
-            setPassword('');
-            setConfirmPassword('');
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'An error occurred');
-        } finally {
-            setLoading(false);
-        }
+        // setLoading(true);
+        // try {
+        //     setSuccess(true);
+        //     setEmail('');
+        //     setPassword('');
+        //     setConfirmPassword('');
+        // } catch (err) {
+        //     setError(err instanceof Error ? err.message : 'An error occurred');
+        // } finally {
+        //     setLoading(false);
+        // }
     };
 
     const navigate = useNavigate();
@@ -95,9 +112,9 @@ export const SignUp = () => {
                                     Username
                                 </label>
                                 <input
-                                    type="email"
-                                    // value={""}
-                                    // onChange={(e) => setEmail(e.target.value)}
+                                    type="text"
+                                    value={username}
+                                    onChange={(e) => setUsername(e.target.value)}
                                     placeholder="username"
                                     required
                                     className="w-full px-4 py-3 rounded-lg bg-slate-700 border border-slate-600 text-white placeholder-slate-400 focus:outline-none focus:border-green-200 focus:ring-1 focus:ring-green-200 transition-colors"
@@ -109,7 +126,6 @@ export const SignUp = () => {
                                     Password
                                 </label>
                                 <input
-                                    type="password"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     placeholder="••••••••"
@@ -122,6 +138,7 @@ export const SignUp = () => {
                             <button
                                 type="submit"
                                 disabled={loading}
+                            
                                 className="w-full mt-6 px-4 py-3 bg-green-500 hover:bg-green-600 disabled:bg-green-700 disabled:opacity-50 text-slate-900 font-semibold rounded-lg transition-colors duration-200 flex items-center justify-center gap-2"
                             >
                                 {loading ? 'Creating Account...' : 'Create Account'}
