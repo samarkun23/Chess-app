@@ -5,52 +5,47 @@ import type { JwtPayload } from 'jsonwebtoken';
 import JWT_SECRET from '@repo/backend-common/jwt'
 import { WebSocket } from 'ws'
 import dotenv from 'dotenv'
+import cookie from 'cookie'
 
 dotenv.config();
 
-export interface AuthWebSocket extends WebSocket{
-    userId? : String
+export interface AuthWebSocket extends WebSocket {
+    userId?: String
 }
 
-export function authMiddleware(ws: AuthWebSocket, req: any): boolean{
-    console.log("THIS IS SECRET : ", JWT_SECRET)
-    console.log("req receive", req.url);
-    const url = req.url;
+export function authMiddleware(ws: AuthWebSocket, req: any): boolean {
+    const cookies = req.headers.cookie;
 
-    console.log(url)
-
-    if(!url){
-        ws.close(1008, "No url found")
+    if (!cookies) {
+        ws.close();
         return false;
     }
 
-    const queryParams = new URLSearchParams(url.split("?")[1]);
-    const token = queryParams.get("token")
+    //@ts-ignore
+    const token = cookies.split(';').map(c => c.trim()).find(c => c.startsWith('token='))?.split('=')[1];
 
-    console.log(token)
-    if(!token){
-        ws.close(1008, "Token not found")
+    //const parsedCookies = cookie.parse(cookies);
+    //const token = parsedCookies.token;
+
+    if (!token) {
+        ws.close();
         return false;
     }
 
-    
     try {
-        console.log("token")
-        const decoded = jwt.verify(token, JWT_SECRET!);
-        console.log(decoded);
+        const decoded = jwt.verify(token, JWT_SECRET!) as JwtPayload;
 
-        if (typeof decoded === 'string' || !decoded || !('userId' in decoded)) {
+        if (!decoded.userId) {
             ws.close(1008, "Invalid token");
             return false
         }
 
-        console.log("BRO VERIFY ??")
-
-        //@ts-ignore
-        ws.userId = (decoded as JwtPayload).userId
+        ws.userId = decoded.userId;
         return true;
-    } catch (error) {
-        ws.close(1008, "Unauthorized")    
+    }
+
+    catch (error) {
+        ws.close(1008, "Unauthorized")
         return false;
     }
 }

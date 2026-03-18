@@ -1,7 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws'
 import { GameManager } from './GameManager.js';
 import { authMiddleware, AuthWebSocket } from './middleware/authMiddleware.js';
-import type { Request } from 'express';
 import { IncomingMessage } from 'http';
 
 const wss = new WebSocketServer({ port: 3000 });
@@ -13,15 +12,11 @@ wss.on('connection', function connection(ws: AuthWebSocket, req: IncomingMessage
     try {
         ws.on('error', console.error);
 
-        // const fakeReq = {
-        //     url: req.url
-        // } as Request
-
-        console.log("req go")
-        const isAuthenticated = authMiddleware(ws, req);
+        const isAuthenticated = authMiddleware(ws,req);
         if(!isAuthenticated) return;
 
-        console.log("BHENSTOKeS")
+        console.log("user connected", ws.userId);
+        gameManager.addUser(ws)
 
     } catch (error) {
         console.log(error, "Error in ws ")
