@@ -1,45 +1,49 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
-}
-enum gameResult {
-  WIN
-  LOSS
-  DRAW
+  url      = env("DATABASE_URL")
 }
 
 model User {
-  id      Int     @id()     @default(autoincrement())
-  username  String      @unique
-  email     String      @unique
-  password  String
-
-  whiteGames  Game[]      @relation("WhitePlayer")
-  blackGames  Game[]      @relation("BlackPlayer")
+  id         Int    @id @default(autoincrement())
+  username   String @unique
+  email      String @unique
+  password   String
+  blackGames Game[] @relation("BlackPlayer")
+  whiteGames Game[] @relation("WhitePlayer")
+  Moves      Move[]
 }
 
-model Game{
-  id        Int     @id()     @default(autoincrement())
+model Move {
+  id        Int     @id     @default(autoincrement())
+  gameId    Int
+  playerId  Int
+  from      String
+  to        String
+  createdAt DateTime        @default(now())
 
-  whiteId   Int
-  blackId   Int
+  game      Game      @relation(fields: [gameId], references: [id])
+  player    User      @relation(fields: [playerId], references: [id])
+}
 
-  winnerId  Int
-  result    gameResult?
-
-  createdAt DateTime      @default(now())
+model Game {
+  id        Int         @id @default(autoincrement())
+  createdAt DateTime    @default(now())
   endedAt   DateTime?
+  blackId   Int
+  result    gameResult?
+  whiteId   Int
+  winnerId  Int?
+  black     User        @relation("BlackPlayer", fields: [blackId], references: [id])
+  white     User        @relation("WhitePlayer", fields: [whiteId], references: [id])
+  Moves     Move[]
+}
 
-  white     User          @relation("WhitePlayer", fields: [whiteId], references: [id])
-  black     User          @relation("BlackPlayer", fields: [blackId], references: [id])
+enum gameResult {
+  WHITE_WIN
+  BLACK_WIN
+  DRAW
 }
