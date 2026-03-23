@@ -58,11 +58,13 @@ router.post("/signup", async (req, res) => {
 router.post("/signin", async (req, res) => {
     const body = req.body;
 
+    console.log(body)
     let user;
     if (body.email) {
         user = await prismaClient.user.findUnique({
             where: { email: body.email }
         })
+        console.log(user)
     } else if (body.username) {
         user = await prismaClient.user.findUnique({
             where: { username: body.username }
@@ -80,14 +82,16 @@ router.post("/signin", async (req, res) => {
             body.password,
             user.password
         )
-
+        
         if (!isPasswordValid) {
             return res.status(403).json({
                 message: "user did not exits"
             })
         }
+        console.log("password is valid dude")
 
         const token = jwt.sign({ userId: user.id }, JWT_SECRET!);
+        console.log("here is the token", token);
 
         res.cookie('token', token, {
             httpOnly: true,
@@ -95,6 +99,7 @@ router.post("/signin", async (req, res) => {
             sameSite: 'strict'
         });
 
+        console.log("return the cookie")
         res.json({
             message: "LOGIN SUCCESSFULLY"
         })
