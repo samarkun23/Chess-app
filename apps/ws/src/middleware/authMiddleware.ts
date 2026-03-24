@@ -10,7 +10,7 @@ import cookie from 'cookie'
 dotenv.config();
 
 export interface AuthWebSocket extends WebSocket {
-    userId?: String
+    userId?: Number
 }
 
 export function authMiddleware(ws: AuthWebSocket, req: any): boolean {
@@ -40,7 +40,7 @@ export function authMiddleware(ws: AuthWebSocket, req: any): boolean {
             return false
         }
 
-        ws.userId = decoded.userId;
+        ws.userId = Number(decoded.userId);
         return true;
     }
 
