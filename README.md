@@ -1,5 +1,7 @@
 # Chess-app
 
+## V1 is read
+
 ## Future feature
 - chat
 - videocall
