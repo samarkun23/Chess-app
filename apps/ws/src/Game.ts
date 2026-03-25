@@ -86,9 +86,7 @@ export class Game {
     }
 
     async makeMove(socket: WebSocket, move: { from: string, to: string }) {
-        // validation , is this user move, is the move valid , than update the board push the move and check the game is over ? and send the upadated board to both of them 
-        //now for this all the validation we use chess library . 
-
+        // ensure correct player's turn
         if (this.moveCount % 2 === 0 && socket !== this.player1.socket) {
             return
         }
@@ -96,35 +94,61 @@ export class Game {
             return
         }
 
-        // validation
+        // Attempt the move and handle any exceptions / invalid moves gracefully
+        let result;
         try {
-            const result = this.board.move({ ...move, promotion: 'q' });
-            if (!result) {
-                console.log("Invalid move attempted:", move);
-                return;
-            }
-            console.log("this is legal moves");
-            console.log(move);
-
+            result = this.board.move({ ...move, promotion: 'q' });
         } catch (error) {
-            console.log("Exception in move", move, error)
+            console.log("Exception in move (thrown):", move, error);
+            // notify the player who attempted the invalid move
+            try {
+                socket.send(JSON.stringify({ type: "error", payload: { message: "Invalid move format or internal error" } }));
+            } catch (_) { /* ignore socket send errors */ }
             return;
         }
 
+        if (!result) {
+            console.log("Invalid move attempted (illegal):", move);
+            try {
+                socket.send(JSON.stringify({ type: "error", payload: { message: "Illegal move" } }));
+            } catch (_) { console.error("Failed to send illegal move error message:", _) }
+            return;
+        }
 
+        // successful move -> update state, persist and broadcast
         this.moveCount++;
-        //board is autometically updating throw a library
 
-        // checking th game is over 
-        this.player1.socket.send(JSON.stringify({ type: MOVE, payload: move }));
-        this.player2.socket.send(JSON.stringify({ type: MOVE, payload: move }));
+        // broadcast move to both players
+        try {
+            this.player1.socket.send(JSON.stringify({ type: MOVE, payload: move }));
+            this.player2.socket.send(JSON.stringify({ type: MOVE, payload: move }));
+        } catch (err) {
+            console.error("Error broadcasting move:", err);
+            // try to rollback board state if broadcast failed catastrophically
+            try {
+                this.board.undo();
+                this.moveCount--;
+            } catch (_) { /* best-effort rollback */ }
+            return;
+        }
 
-        // store move in DB . 
+        // store move in DB, handle DB errors without leaving the game in a broken state
         const playerId = socket === this.player1.socket ? this.player1.id : this.player2.id;
-        await this.addMoveInDb(move, playerId);
+        try {
+            await this.addMoveInDb(move, playerId);
+        } catch (err) {
+            console.error("Failed to persist move, rolling back:", err);
+            // rollback the move and notify players
+            try {
+                this.board.undo();
+                this.moveCount--;
+                this.player1.socket.send(JSON.stringify({ type: "error", payload: { message: "Server error, move reverted" } }));
+                this.player2.socket.send(JSON.stringify({ type: "error", payload: { message: "Server error, move reverted" } }));
+            } catch (_) { console.error("Error in rollback of moves:", _) }
+            return;
+        }
 
-        // move 
-
+        // check for game over after a successful, persisted move
         if (this.board.isGameOver()) {
             let winner: "white" | "black" | "draw" = "draw";
             let resultEnum: "WHITE_WIN" | "BLACK_WIN" | "DRAW" = "DRAW";
@@ -135,34 +159,40 @@ export class Game {
                 resultEnum = winner === "white" ? "WHITE_WIN" : "BLACK_WIN";
                 winnerId = winner === "white" ? this.player1.id : this.player2.id;
             } else if (this.board.isDraw()) {
-                winner = "draw",
-                    resultEnum = "DRAW",
-                    winnerId = null;
+                winner = "draw";
+                resultEnum = "DRAW";
+                winnerId = null;
             }
 
-            this.player1.socket.send(JSON.stringify({
-                type: GAME_OVER,
-                payload: { 
-                    winner
-                }
-            }));
+            try {
+                this.player1.socket.send(JSON.stringify({
+                    type: GAME_OVER,
+                    payload: {
+                        winner
+                    }
+                }));
+                this.player2.socket.send(JSON.stringify({
+                    type: GAME_OVER,
+                    payload: {
+                        winner
+                    }
+                }));
+            } catch (err) {
+                console.error("Failed to broadcast game over:", err);
+            }
 
-            this.player2.socket.send(JSON.stringify({
-                type: GAME_OVER,
-                payload: { 
-                    winner
-                 }
-            }));
-
-            await prismaClient.game.update({
-                where: {id : Number(this.gameId)},
-                data: {
-                    endedAt: new Date(),
-                    result: resultEnum,
-                    winnerId: winnerId
-                }
-            })
-
+            try {
+                await prismaClient.game.update({
+                    where: { id: Number(this.gameId) },
+                    data: {
+                        endedAt: new Date(),
+                        result: resultEnum,
+                        winnerId: winnerId
+                    }
+                })
+            } catch (err) {
+                console.error("Failed to update game result in DB:", err);
+            }
         }
     }
 }
