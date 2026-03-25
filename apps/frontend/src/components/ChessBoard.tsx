@@ -15,7 +15,7 @@ export const ChessBoard = ({ board, socket, setBoard, chess }: {
 
     const [from, setFrom] = useState<null | Square>(null);
 
-    return <div className="">
+    return <div className="rounded-lg overflow-hidden shadow-lg">
         {board.map((row, i) => {
             return <div key={i} className="flex">
                 {row.map((square, j) => {
