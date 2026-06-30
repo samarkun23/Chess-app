@@ -11,13 +11,15 @@ export class Game {
     private board: Chess;
     private startTime: Date;
     private moveCount = 0;
+    private onGameEnd : (gameId: number) => void;
 
 
-    constructor(player1: { id: number; socket: WebSocket }, player2: { id: number; socket: WebSocket }) {
+    constructor(player1: { id: number; socket: WebSocket }, player2: { id: number; socket: WebSocket }, onGameEnd: (gameId: number) => void) {
         this.player1 = player1;
         this.player2 = player2;
         this.board = new Chess();
         this.startTime = new Date();
+        this.onGameEnd = onGameEnd;
     }
 
     async initGame() {
@@ -117,6 +119,7 @@ export class Game {
 
         // successful move -> update state, persist and broadcast
         this.moveCount++;
+        const playerId = socket === this.player1.socket ? this.player1.id : this.player2.id;
 
         // broadcast move to both players
         try {
@@ -133,7 +136,6 @@ export class Game {
         }
 
         // store move in DB, handle DB errors without leaving the game in a broken state
-        const playerId = socket === this.player1.socket ? this.player1.id : this.player2.id;
         try {
             await this.addMoveInDb(move, playerId);
         } catch (err) {
@@ -193,6 +195,8 @@ export class Game {
             } catch (err) {
                 console.error("Failed to update game result in DB:", err);
             }
+
+            this.onGameEnd(Number(this.gameId));
         }
     }
 }
