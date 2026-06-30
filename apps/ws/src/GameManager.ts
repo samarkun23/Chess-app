@@ -4,7 +4,7 @@ import { Game } from "./Game.js";
 import { AuthWebSocket } from "./middleware/authMiddleware.js";
 
 export class GameManager{
-    private games: Game[];
+    private games: Game[]; 
     private pendingUser: {id: number, socket: WebSocket} | null; // a user who is currently waiting to be connected 
     private users: WebSocket[]; // list of active user on server
 
@@ -12,6 +12,11 @@ export class GameManager{
         this.games = [];
         this.pendingUser = null;
         this.users = [];
+    }
+
+     private removeGame(gameId: number) {
+        this.games = this.games.filter(g => Number(g.gameId) !== gameId);
+        console.log(`Game ${gameId} removed. Active games: ${this.games.length}`);
     }
 
     addUser(socket: AuthWebSocket) {
@@ -39,8 +44,13 @@ export class GameManager{
 
             if(message.type === INIT_GAME){
                 if(this.pendingUser){
+                    if(this.pendingUser.id === user.id){ // FIX : User cannot play with them self 
+                        return;
+                    };
                     // start game 
-                    const game = new Game(this.pendingUser, user);
+                    const game = new Game(this.pendingUser, user, (gameId: number) => {
+                        this.removeGame(gameId)
+                    });
                     this.games.push(game);
                     this.pendingUser = null;
                     game.initGame();
