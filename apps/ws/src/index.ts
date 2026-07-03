@@ -18,31 +18,16 @@ wss.on('connection', function connection(ws: AuthWebSocket, req: IncomingMessage
         console.log("user connected", ws.userId);
         gameManager.addUser(ws)
 
+        ws.on('close', () => {
+            console.log("user disconnected", ws.userId);
+            gameManager.removeUser(ws);
+        });
+
     } catch (error) {
         console.log(error, "Error in ws ")
     }
 
-
 })
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
