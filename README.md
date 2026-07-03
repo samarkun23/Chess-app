@@ -21,17 +21,19 @@
 Chess App is a full-stack multiplayer chess platform built on a **monorepo architecture**. It leverages WebSockets for sub-100ms move synchronization, `chess.js` for bulletproof move validation, and PostgreSQL for persistent game state — all orchestrated with Turborepo across three independent services.
  
 <br />
+
+# Recently Features added
+-  __Reconnect__ to existing games
+- __Basic Matchmaking queue__
+- __Game state saving__ to database
+
 <h1>Architecture</h1>
  
 ### Current System
  
-<img src="https://github.com/user-attachments/assets/c5e92ca6-7401-4af7-9c0d-194b6d13d2dd" alt="Current Architecture" width="100%" />
+<img src="chess_current_architecture.png" alt="Current Architecture" width="100%" />
 The current architecture uses a **single WebSocket server** that handles all real-time game logic. The HTTP backend manages authentication and user data independently, while both services share types and database access via monorepo packages.
  
-### Future Resilient System
- 
-<img src="https://github.com/user-attachments/assets/efa32804-3ac3-4dc1-8927-d31944911a58" alt="Future Architecture" width="100%" />
-The V2 architecture introduces **horizontal scaling** via a message broker (Redis/Kafka) between WebSocket nodes, a dedicated presence service, and read replicas — enabling zero-downtime deployments and handling thousands of concurrent games.
  
 <br />
 ## Tech Stack
@@ -66,7 +68,6 @@ chess-app/
 ```
  
 <br />
-## Getting Started
  
 ### Prerequisites
  
@@ -137,7 +138,7 @@ Turborepo starts all three services in parallel:
 - 🔐 **Authentication** — JWT-based sign up / sign in
 - 💾 **Game persistence** — full game state saved to PostgreSQL
 - 📱 **Responsive UI** — works on mobile and desktop
-### Roadmap (V2)
+### Future (Planned) (V2)
  
 - [ ] In-game chat
 - [ ] Video call integration
@@ -145,7 +146,6 @@ Turborepo starts all three services in parallel:
 - [ ] ELO rating & leaderboard
 - [ ] Spectator mode
 - [ ] Horizontal WebSocket scaling (Redis pub/sub)
-- [ ] Reconnection handling & game resumption
 <br />
 ## How a Game Works
  
