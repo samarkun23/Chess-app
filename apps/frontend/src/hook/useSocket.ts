@@ -1,20 +1,56 @@
 import { useEffect, useState } from "react"
 
-
-const WS_URL = "http://localhost:3000"
 export const useSocket = () => {
-    const [socket, setSocket] = useState<WebSocket | null>();
+    const [socket, setSocket] = useState<WebSocket | null>(null);
 
     useEffect(() => {
+        const WS_URL = "ws://localhost:3000"
+        let ws: WebSocket | null = null;
+        let reconnectTimeout: NodeJS.Timeout | null = null;
+        let isMounted = true;
 
-        const ws = new WebSocket(WS_URL);
+        const connect = () => {
+            if (!isMounted) return;
 
-        ws.onopen = () => {
-            console.log("Connected");
-            setSocket(ws)
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                console.log("Connected");
+                if (isMounted) {
+                    setSocket(ws);
+                }
+            }
+            ws.onerror = (err) => {
+                console.log("Websocket error ", err);
+            }
+            ws.onclose = () => {
+                console.log("Disconnected")
+                if (isMounted) {
+                    setSocket(null);
+                    // Attempt to reconnect after 3 seconds
+                    reconnectTimeout = setTimeout(() => {
+                        console.log("Attempting to reconnect...");
+                        connect();
+                    }, 30000);
+                }
+            }
         }
+
+        connect();
+
         return () => {
-            ws.close();
+            isMounted = false;
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+            }
+            if (ws) {
+                ws.onopen = null;
+                ws.onerror = null;
+                ws.onclose = null;
+                if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+                    ws.close();
+                }
+            }
         }
 
     }, [])
