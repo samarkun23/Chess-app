@@ -4,17 +4,24 @@ import { GAME_OVER, INIT_GAME, MOVE } from "./messages.js";
 import { randomUUID } from 'crypto'
 import { prismaClient } from '@repo/db/client'
 
+export type Player = {
+    id: number | null;
+    socket: WebSocket;
+}
+
 export class Game {
     public gameId!: Number;
-    public player1: { id: number, socket: WebSocket };
-    public player2: { id: number, socket: WebSocket };
+    public player1: Player;
+    public player2: Player;
     private board: Chess;
     private startTime: Date;
     private moveCount = 0;
-    private onGameEnd : (gameId: number) => void;
+    private onGameEnd: (gameId: number) => void;
 
+    private disconnectTimer: NodeJS.Timeout | null = null;
+    private disconnectedPlayerId: number | null = null;
 
-    constructor(player1: { id: number; socket: WebSocket }, player2: { id: number; socket: WebSocket }, onGameEnd: (gameId: number) => void) {
+    constructor(player1: { id: number; socket: WebSocket, connected: boolean, disconnectedTimer?: NodeJS.Timeout }, player2: { id: number; socket: WebSocket, connected: boolean, disconnectedTimer?: NodeJS.Timeout }, onGameEnd: (gameId: number) => void) {
         this.player1 = player1;
         this.player2 = player2;
         this.board = new Chess();
@@ -31,46 +38,51 @@ export class Game {
             return;
         }
 
-        const users = await prismaClient.user.findMany({
-            where: {
-                id: {
-                    in: [this.player1.id, this.player2.id]
+        if (this.player1.id !== null && this.player2.id !== null) {
+            const users = await prismaClient.user.findMany({
+                where: {
+                    id: {
+                        in: [this.player1.id, this.player2.id]
+                    }
                 }
+            });
+            if (this.player1) {
+                this.player1.socket.send(JSON.stringify({
+                    type: INIT_GAME,
+                    payload: {
+                        color: "white",
+                        gameId: this.gameId,
+                        whitePlayer: users.find(user => user.id === this.player1.id)?.username,
+                        blackPlayer: users.find(user => user.id === this.player2.id)?.username
+                    }
+                }))
             }
-        });
+            if (this.player2) {
+                this.player2.socket.send(JSON.stringify({
+                    type: INIT_GAME,
+                    payload: {
+                        color: "black",
+                        gameId: this.gameId,
+                        whitePlayer: users.find(user => user.id === this.player1.id)?.username,
+                        blackPlayer: users.find(user => user.id === this.player2.id)?.username
+                    }
+                }))
+            }
+        }
 
-        if (this.player1) {
-            this.player1.socket.send(JSON.stringify({
-                type: INIT_GAME,
-                payload: {
-                    color: "white",
-                    gameId: this.gameId,
-                    whitePlayer: users.find(user => user.id === this.player1.id)?.username,
-                    blackPlayer: users.find(user => user.id === this.player2.id)?.username
-                }
-            }))
-        }
-        if (this.player2) {
-            this.player2.socket.send(JSON.stringify({
-                type: INIT_GAME,
-                payload: {
-                    color: "black",
-                    gameId: this.gameId,
-                    whitePlayer: users.find(user => user.id === this.player1.id)?.username,
-                    blackPlayer: users.find(user => user.id === this.player2.id)?.username
-                }
-            }))
-        }
+
     }
 
     async createGameInDb() {
-        const game = await prismaClient.game.create({
-            data: {
-                whiteId: this.player1.id,
-                blackId: this.player2.id
-            }
-        })
-        this.gameId = game.id;
+        if (this.player1.id !== null && this.player2.id !== null) {
+            const game = await prismaClient.game.create({
+                data: {
+                    whiteId: this.player1.id,
+                    blackId: this.player2.id
+                }
+            })
+            this.gameId = game.id;
+        }
     }
 
     async addMoveInDb(move: {
@@ -137,7 +149,9 @@ export class Game {
 
         // store move in DB, handle DB errors without leaving the game in a broken state
         try {
-            await this.addMoveInDb(move, playerId);
+            if (playerId) {
+                await this.addMoveInDb(move, playerId);
+            }
         } catch (err) {
             console.error("Failed to persist move, rolling back:", err);
             // rollback the move and notify players
@@ -198,5 +212,111 @@ export class Game {
 
             this.onGameEnd(Number(this.gameId));
         }
+    }
+
+    handleDisconnect(socket: WebSocket) {
+        const isPlayer1 = socket === this.player1.socket;
+        const isPlayer2 = socket === this.player2.socket;
+
+        if (!isPlayer1 && !isPlayer2) return;
+
+        const disconnectedPlayer = isPlayer1 ? this.player1 : this.player2;
+        const otherPlayer = isPlayer2 ? this.player2 : this.player1;
+
+        this.disconnectedPlayerId = disconnectedPlayer.id;
+
+        try {
+            otherPlayer.socket.send(JSON.stringify({
+                type: "opponent_disconnected",
+                payload: { message: "Opponent disconnected. Waiting for 30 sec for reconnect..." }
+            }))
+        } catch (err) {
+            console.error("Failed to notify othre player:", err);
+        }
+
+        if (disconnectedPlayer.id !== null) {
+            const playerId = disconnectedPlayer.id;
+            this.disconnectTimer = setTimeout(() => {
+                this.forfeitGame(playerId);
+            },30000)
+        } else {
+            console.log("we dont recive disconnectedPlayer Id")
+        }
+
+    }
+
+    handleReconnect(playerId: number, newSocket: WebSocket) {
+        console.log("Handle reconnect")
+        console.log("playerId", playerId);
+        console.log("disconnectedPlayerId", this.disconnectedPlayerId);
+        if (playerId !== this.disconnectedPlayerId) return false;
+
+        if (this.disconnectTimer) {
+            clearTimeout(this.disconnectTimer);
+            this.disconnectTimer = null;
+        }
+        this.disconnectedPlayerId = null;
+
+        // changing the old socket
+        if (this.player1.id === playerId) {
+            this.player1.socket = newSocket;
+        } else {
+            this.player2.socket = newSocket;
+        }
+
+        const color = this.player1.id === playerId ? "white":"black";
+
+        console.log("Sending reconnect payload")
+        //send the current board state to a player
+        newSocket.send(JSON.stringify({
+            type: "RECONNECT",
+            payload: {
+                fen: this.board.fen(),
+                gameId: this.gameId,
+                color
+            }
+        }))
+
+        // telling other player that disconnectedPlayer comes back.
+        const otherPlayer = this.player1.id === playerId ? this.player2 : this.player1;
+        otherPlayer.socket.send(JSON.stringify({
+            type: "opponent_reconnected",
+            payload: { message: "Opponent reconnect." }
+        }))
+
+        return true;
+    }
+
+    private async forfeitGame(disconnectedPlayerId: number) {
+        const winnerId = this.player1.id === disconnectedPlayerId ? this.player2.id : this.player1.id;
+
+        const winner = this.player1.id === winnerId ? "white" : "black";
+        try {
+            this.player1.socket.send(JSON.stringify({
+                type: GAME_OVER,
+                payload: { winner, reason: "opponent_disconnected" }
+            }));
+            this.player2.socket.send(JSON.stringify({
+                type: GAME_OVER,
+                payload: { winner, reason: "opponent_disconnected" }
+            }))
+        } catch (error) {
+            console.log("Failed to send forfeitGame result: ", error);
+        }
+
+        try {
+            await prismaClient.game.update({
+                where: { id: Number(this.gameId) },
+                data: {
+                    endedAt: new Date(),
+                    result: winner === "white" ? "WHITE_WIN" : "BLACK_WIN",
+                    winnerId
+                }
+            })
+        } catch (error) {
+            console.error("Failed to update forfeitGame result in DB", error);
+        }
+
+        this.onGameEnd(Number(this.gameId));
     }
 }
